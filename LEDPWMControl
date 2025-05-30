@@ -1,0 +1,128 @@
+/*
+  LED PWM C3  –  ESP32-C3 Super Mini
+  Controls a 5 V LED strip via a logic-level MOSFET and exposes
+  a Home Assistant (MQTT Discovery) light entity with brightness.
+*/
+
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+
+const char* SSID         = "fivealive";
+const char* PASSWORD     = "Jbso2027!";
+
+const char* MQTT_HOST    = "192.168.1.10";      // <-- your broker
+const uint16_t MQTT_PORT = 1883;
+
+const int LED_PIN        = 1;                   // PWM-capable GPIO -> MOSFET gate
+const uint8_t PWM_CH     = 0;                   // LEDC channel 0
+const uint16_t PWM_FREQ  = 1220;                // Hz
+const uint8_t PWM_RES    = 10;                  // 10-bit (0-1023)
+
+const char* DEVICE_ID            = "led_pwm_c3";
+const char* CMD_TOPIC            = "led_pwm_c3/light/set";
+const char* STATE_TOPIC          = "led_pwm_c3/light/state";
+const char* DISCOVERY_TOPIC      = "homeassistant/light/led_pwm_c3/config";
+
+WiFiClient      wifiClient;
+PubSubClient    mqtt(wifiClient);
+
+uint8_t currentBrightness = 0;                  // 0-255
+
+// ---------- Wi-Fi ----------
+void setupWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+  }
+}
+
+// ---------- MQTT ----------
+void publishDiscovery() {
+  StaticJsonDocument<512> doc;
+  doc["name"]        = "Grow Light";
+  doc["uniq_id"]     = "led_pwm_c3_light";
+  doc["cmd_t"]       = CMD_TOPIC;
+  doc["stat_t"]      = STATE_TOPIC;
+  doc["schema"]      = "json";
+  doc["bri_cmd_t"]   = CMD_TOPIC;
+  doc["bri_stat_t"]  = STATE_TOPIC;
+
+  JsonObject dev     = doc.createNestedObject("device");
+  dev["identifiers"] = DEVICE_ID;
+  dev["name"]        = "LED PWM C3";
+  dev["model"]       = "ESP32-C3 Super Mini";
+  dev["manufacturer"]= "DIY";
+
+  char buf[512];
+  size_t n = serializeJson(doc, buf);
+  mqtt.publish(DISCOVERY_TOPIC, buf, n, true);     // retain
+}
+
+void publishState() {
+  StaticJsonDocument<128> doc;
+  doc["state"]      = currentBrightness ? "ON" : "OFF";
+  doc["brightness"] = currentBrightness;
+  char buf[128];
+  size_t n = serializeJson(doc, buf);
+  mqtt.publish(STATE_TOPIC, buf, n, true);
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int len) {
+  if (strcmp(topic, CMD_TOPIC) != 0) return;
+
+  StaticJsonDocument<200> doc;
+  DeserializationError err = deserializeJson(doc, payload, len);
+  if (err) return;
+
+  bool updateNeeded = false;
+
+  if (doc.containsKey("brightness")) {
+    currentBrightness = doc["brightness"];
+    updateNeeded = true;
+  }
+  if (doc.containsKey("state")) {
+    const char* s = doc["state"];
+    if (!strcmp(s, "OFF")) currentBrightness = 0;
+    if (!strcmp(s, "ON")  && currentBrightness == 0) currentBrightness = 255; // default full
+    updateNeeded = true;
+  }
+
+  if (updateNeeded) {
+    uint32_t duty = map(currentBrightness, 0, 255, 0, (1 << PWM_RES) - 1);
+    ledcWrite(PWM_CH, duty);
+    publishState();
+  }
+}
+
+void ensureMqtt() {
+  while (!mqtt.connected()) {
+    if (mqtt.connect(DEVICE_ID)) {
+      mqtt.subscribe(CMD_TOPIC);
+      publishDiscovery();
+      publishState();
+    } else {
+      delay(2000);
+    }
+  }
+}
+
+// ---------- Setup / Loop ----------
+void setup() {
+  // Serial.begin(115200);               // optional debug
+  setupWiFi();
+
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(mqttCallback);
+
+  // LEDC hardware-PWM init
+  ledcSetup(PWM_CH, PWM_FREQ, PWM_RES);
+  ledcAttachPin(LED_PIN, PWM_CH);
+  ledcWrite(PWM_CH, 0);                  // start OFF
+}
+
+void loop() {
+  ensureMqtt();
+  mqtt.loop();
+}
