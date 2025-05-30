@@ -1,0 +1,39 @@
+esphome:
+  name: led_pwm_c3
+  friendly_name: LED PWM C3
+
+esp32:
+  board: esp32-c3-devkitm-1       # works for the “Super Mini”
+  framework:
+    type: arduino
+
+wifi:
+  ssid: "fivealive"
+  password: "Jbso2027!"
+  ap:                              # fallback AP if Wi-Fi fails
+    ssid: "LED-PWM-C3 Fallback"
+    password: "changeme123"
+
+# Optional—handy while tuning
+web_server:
+  port: 80
+
+logger:
+api:                               # native ESPHome API (for HA)
+ota:
+
+# ----------  Hardware I/O ----------
+external_components: []            # none needed
+
+output:
+  - platform: ledc                 # ESP32 hardware-PWM
+    pin: GPIO1                     # <-- change to the pin that feeds the MOSFET gate
+    frequency: 1220 Hz             # flicker-free
+    id: led_pwm
+
+light:
+  - platform: monochromatic
+    name: "Grow Light"
+    output: led_pwm
+    default_transition_length: 0.5s
+    restore_mode: RESTORE_DEFAULT_OFF   # last-state on reboot
