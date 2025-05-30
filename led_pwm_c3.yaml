@@ -8,8 +8,8 @@ esp32:
     type: arduino
 
 wifi:
-  ssid: "fivealive"
-  password: "Jbso2027!"
+  ssid: ""yourwifi
+  password: "yourpassword"
   ap:                              # fallback AP if Wi-Fi fails
     ssid: "LED-PWM-C3 Fallback"
     password: "changeme123"
