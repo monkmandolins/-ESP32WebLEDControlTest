@@ -8,8 +8,8 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-const char* SSID         = "fivealive";
-const char* PASSWORD     = "Jbso2027!";
+const char* SSID         = "yourwifi";
+const char* PASSWORD     = "yourpassword!";
 
 const char* MQTT_HOST    = "192.168.1.10";      // <-- your broker
 const uint16_t MQTT_PORT = 1883;
