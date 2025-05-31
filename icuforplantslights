@@ -1,0 +1,43 @@
+esphome:
+  name: icuforplants
+  friendly_name: ICUforPlants
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "HRz+sfH2CykxHO1dRdjy+21nIB88CbIREYdzvGFrCl8="
+
+ota:
+  - platform: esphome
+    password: "e8c4aadd887a52c42f4695ba688746c0"
+
+wifi:
+  ssid: "yournetwork"
+  password: "yourpassword!"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Icuforplants Fallback Hotspot"
+    password: "KnaEojqV5jZB"
+
+captive_portal:
+    
+output:
+  - platform: gpio # Correctly set to GPIO for digital on/off
+    pin: GPIO1     # The GPIO connected to your MOSFET gate
+    id: led_digital_output
+
+# 2. Define the Light component using the digital output
+light:
+  - platform: binary # Correctly set to 'binary' for on/off light
+    name: "Plant Tower Lights" # Friendly name for Home Assistant entity
+    id: plant_tower_lights_entity # Unique ID for this specific light in ESPHome
+    output: led_digital_output # Link to the output defined above
